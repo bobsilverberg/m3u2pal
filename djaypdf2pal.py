@@ -1,5 +1,6 @@
 
 import sys
+import pyPdf
 
 def file_split(f, delim='\r', bufsize=1024):
     prev = ''
@@ -19,20 +20,22 @@ def file_split(f, delim='\r', bufsize=1024):
         yield prev
 
 
-filename = sys.argv[1]
-mp3_filename = sys.argv[2]
+filename = 'djaypdf.pdf'
+#filename = sys.argv[1]
+mp3_filename = 'test.mp3'
+#mp3_filename = sys.argv[2]
 
-pal_filename = filename.replace('.m3u','.pal')
+pal_filename = filename.replace('.pdf','.pal')
 pal = open(pal_filename, 'w')
 
 beginning = [
-    '// This script on execution will automatically add to the queue and fade to next, then trigger the meta data to start outputting',
-    '// It will even handle the case of SAM not playing anything at all.',
+    '; This script on execution will automatically add to the queue and fade to next, then trigger the meta data to start outputting',
+    '; It will even handle the case of SAM not playing anything at all.',
     'PAL.LockExecution;',
     'var updSong : TSongInfo;',
     'var ip : TPlayer;',
     'updSong := TSongInfo.Create;',
-    '// JUST CHANGE THIS TO POINT TO THE SHOW FILE',
+    '; JUST CHANGE THIS TO POINT TO THE SHOW FILE',
     "Queue.AddFile('%s',ipTop);" % mp3_filename,
     'If ActivePlayer = nil then',
     'begin',
@@ -54,14 +57,22 @@ beginning = [
     '   { Nothing is playing, so ask the idle player to load up the next track from the queue }',
     'ip.Next();',
     'ip.Play();',
-    'end;',
-    "PAL.WaitForTime(T['+00:0:0']);"
+    'end;'
 ]
 
 for line in beginning:
     pal.write('%s\n' % line)
 
-with open(filename, 'r') as m3u:
+with open(filename, 'rb') as pdf_file:
+    content = ""
+    pdf = pyPdf.PdfFileReader(pdf_file)
+    for i in range(0, pdf.getNumPages()):
+        content += pdf.getPage(i).extractText() + "\n"
+    content = u" ".join(content.replace(u"\xa0", u" ").strip().split())
+
+    print content
+
+    """
     for line in file_split(m3u):
         if line.startswith('#EXTINF:'):
             line_list = line[8:].split(',')
@@ -69,12 +80,15 @@ with open(filename, 'r') as m3u:
             hours, remainder = divmod(track_seconds, 3600)
             minutes, seconds = divmod(remainder, 60)
             track_info = line_list[1].split(' - ')
-            title = track_info[0].replace("'","''")
-            artist = '' if len(track_info) != 2 else track_info[1].replace("'","''")
+            artist = track_info[0]
+            title = track_info[1]
+            pal.write("PAL.WaitForTime(T['+00:%s:%s']);\n" % (minutes, seconds))
             pal.write("updSong['title'] := '%s';\n" % title)
             pal.write("updSong['artist'] := '%s';\n" % artist)
             pal.write("Encoders.SongChange(updSong);\n")
-            pal.write("PAL.WaitForTime(T['+00:%s:%s']);\n" % (minutes, seconds))
+    """
 
+"""
 pal.write("PAL.UnLockExecution;\n")
 pal.close()
+"""
